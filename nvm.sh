@@ -2135,12 +2135,69 @@ nvm_get_checksum() {
   nvm_download -L -s "${SHASUMS_URL}" -o - | command awk -v tarball="${4}.${5}" '{ if (tarball == $2) print $1 }'
 }
 
+nvm_get_remote_aliases() {
+  local NVM_REMOTE_VERSIONS
+  NVM_REMOTE_VERSIONS="${1-}"
+  if [ -z "${NVM_REMOTE_VERSIONS}" ]; then
+    return 0
+  fi
+
+  local NVM_ALIAS_DIR
+  NVM_ALIAS_DIR="$(nvm_alias_path)"
+  if [ ! -d "${NVM_ALIAS_DIR}" ]; then
+    return 0
+  fi
+
+  local NVM_NODE_PREFIX
+  NVM_NODE_PREFIX="$(nvm_node_prefix)"
+  local NVM_IOJS_PREFIX
+  NVM_IOJS_PREFIX="$(nvm_iojs_prefix)"
+  local NVM_LATEST_NODE_VERSION
+  NVM_LATEST_NODE_VERSION="$(nvm_echo "${NVM_REMOTE_VERSIONS}" | command awk -v iojs_prefix="${NVM_IOJS_PREFIX}-" '$1 !~ ("^" iojs_prefix) { version = $1 } END { print version }')"
+  local NVM_LATEST_IOJS_VERSION
+  NVM_LATEST_IOJS_VERSION="$(nvm_echo "${NVM_REMOTE_VERSIONS}" | command awk -v iojs_prefix="${NVM_IOJS_PREFIX}-" '$1 ~ ("^" iojs_prefix) { version = $1 } END { print version }')"
+
+  nvm_is_zsh && setopt local_options nonomatch
+  local NVM_ALIAS_PATH
+  for NVM_ALIAS_PATH in "${NVM_ALIAS_DIR}"/*; do
+    if [ ! -f "${NVM_ALIAS_PATH}" ]; then
+      continue
+    fi
+
+    local NVM_ALIAS_NAME
+    NVM_ALIAS_NAME="${NVM_ALIAS_PATH##*/}"
+    case "${NVM_ALIAS_NAME}" in
+      "${NVM_NODE_PREFIX}" | "${NVM_IOJS_PREFIX}" | stable | unstable) continue ;;
+      *"	"* | *"
+"*) continue ;;
+    esac
+
+    local NVM_ALIAS_TARGET
+    NVM_ALIAS_TARGET="$(nvm_resolve_alias "${NVM_ALIAS_NAME}" 2>/dev/null)" || continue
+    local NVM_ALIAS_VERSION
+    case "${NVM_ALIAS_TARGET}" in
+      "${NVM_NODE_PREFIX}") NVM_ALIAS_VERSION="${NVM_LATEST_NODE_VERSION}" ;;
+      "${NVM_IOJS_PREFIX}") NVM_ALIAS_VERSION="${NVM_LATEST_IOJS_VERSION}" ;;
+      '' | '∞' | 'N/A' | system) continue ;;
+      *)
+        NVM_ALIAS_VERSION="$(nvm_echo "${NVM_REMOTE_VERSIONS}" | command awk '{ print $1 }' | nvm_grep -w "${NVM_ALIAS_TARGET}" | command tail -1)"
+      ;;
+    esac
+
+    if [ -n "${NVM_ALIAS_VERSION}" ]; then
+      command printf '%s\t%s\n' "${NVM_ALIAS_VERSION}" "${NVM_ALIAS_NAME}"
+    fi
+  done
+}
+
 nvm_print_versions() {
   local NVM_CURRENT
   NVM_CURRENT=$(nvm_ls_current)
 
   local NVM_REMOTE_ALIASES
   NVM_REMOTE_ALIASES="${2-}"
+  local NVM_REMOTE_NAMED_ALIASES
+  NVM_REMOTE_NAMED_ALIASES="${3-}"
 
   local INSTALLED_COLOR
   local SYSTEM_COLOR
@@ -2162,6 +2219,8 @@ nvm_print_versions() {
     NVM_HAS_COLORS=1
   fi
 
+  NVM_REMOTE_NAMED_ALIASES="${NVM_REMOTE_NAMED_ALIASES}" \
+  NVM_REMOTE_ALIAS_SEPARATOR="$(command printf '\t')" \
   command awk \
     -v remote_versions="$(printf '%s' "${1-}" | tr '\n' '|')" \
     -v remote_aliases="${NVM_REMOTE_ALIASES}" \
@@ -2171,6 +2230,8 @@ nvm_print_versions() {
     -v old_lts_color="$DEFAULT_COLOR" -v has_colors="$NVM_HAS_COLORS" '
 function alen(arr, i, len) { len=0; for(i in arr) len++; return len; }
 BEGIN {
+  remote_named_aliases = ENVIRON["NVM_REMOTE_NAMED_ALIASES"];
+  remote_alias_separator = ENVIRON["NVM_REMOTE_ALIAS_SEPARATOR"];
   fmt_installed = has_colors ? (installed_color ? "\033[" installed_color "%15s\033[0m" : "%15s") : "%15s *";
   fmt_system = has_colors ? (system_color ? "\033[" system_color "%15s\033[0m" : "%15s") : "%15s *";
   fmt_current = has_colors ? (current_color ? "\033[" current_color "->%13s\033[0m" : "%15s") : "->%13s *";
@@ -2181,10 +2242,26 @@ BEGIN {
   fmt_latest_lts = has_colors && latest_lts_color ? ("\033[" latest_lts_color " (Latest LTS: %s)\033[0m") : " (Latest LTS: %s)";
   fmt_old_lts = has_colors && old_lts_color ? ("\033[" old_lts_color " (LTS: %s)\033[0m") : " (LTS: %s)";
   fmt_latest_aliases = has_colors && latest_lts_color ? ("\033[" latest_lts_color " (Latest: %s)\033[0m") : " (Latest: %s)";
+  fmt_named_aliases = has_colors && latest_lts_color ? ("\033[" latest_lts_color " (Aliases: %s)\033[0m") : " (Aliases: %s)";
   fmt_system_target = has_colors && system_color ? (" (\033[" system_color "-> %s\033[0m)") : " (-> %s)";
 
   split(remote_versions, lines, "|");
   split(installed_versions, installed, "|");
+  remote_alias_rows = split(remote_named_aliases, remote_alias_lines, "\n");
+  for (remote_alias_line = 1; remote_alias_line <= remote_alias_rows; remote_alias_line++) {
+    separator_position = index(remote_alias_lines[remote_alias_line], remote_alias_separator);
+    if (separator_position > 1) {
+      remote_alias_version = substr(remote_alias_lines[remote_alias_line], 1, separator_position - 1);
+      remote_alias_name = substr(remote_alias_lines[remote_alias_line], separator_position + 1);
+      if (remote_alias_name) {
+        if (named_aliases[remote_alias_version]) {
+          named_aliases[remote_alias_version] = named_aliases[remote_alias_version] ", " remote_alias_name;
+        } else {
+          named_aliases[remote_alias_version] = remote_alias_name;
+        }
+      }
+    }
+  }
   rows = alen(lines);
 
   for (n = 1; n <= rows; n++) {
@@ -2222,7 +2299,11 @@ BEGIN {
     }
 
     if (n == rows && remote_aliases) {
-      formatted = formatted sprintf(fmt_latest_aliases, remote_aliases);
+      formatted = formatted padding sprintf(fmt_latest_aliases, remote_aliases);
+    }
+
+    if (named_aliases[version]) {
+      formatted = formatted padding sprintf(fmt_named_aliases, named_aliases[version]);
     }
 
     output[n] = formatted;
@@ -4736,10 +4817,13 @@ nvm() {
       if [ -n "${NVM_OUTPUT}" ]; then
         local NVM_REMOTE_ALIASES
         NVM_REMOTE_ALIASES=''
+        local NVM_REMOTE_NAMED_ALIASES
+        NVM_REMOTE_NAMED_ALIASES=''
         if [ "${EXIT_CODE}" -eq 0 ] && [ -z "${NVM_LTS-}" ] && [ -z "${PATTERN-}" ]; then
-          NVM_REMOTE_ALIASES='node, stable'
+          NVM_REMOTE_ALIASES='node'
+          NVM_REMOTE_NAMED_ALIASES="$(nvm_get_remote_aliases "${NVM_OUTPUT}")"
         fi
-        NVM_NO_COLORS="${NVM_NO_COLORS-}" nvm_print_versions "${NVM_OUTPUT}" "${NVM_REMOTE_ALIASES-}"
+        NVM_NO_COLORS="${NVM_NO_COLORS-}" nvm_print_versions "${NVM_OUTPUT}" "${NVM_REMOTE_ALIASES-}" "${NVM_REMOTE_NAMED_ALIASES-}"
         return $EXIT_CODE
       fi
       NVM_NO_COLORS="${NVM_NO_COLORS-}" nvm_print_versions "N/A"
