@@ -2168,8 +2168,7 @@ nvm_get_remote_aliases() {
     NVM_ALIAS_NAME="${NVM_ALIAS_PATH##*/}"
     case "${NVM_ALIAS_NAME}" in
       "${NVM_NODE_PREFIX}" | "${NVM_IOJS_PREFIX}" | stable | unstable) continue ;;
-      *"	"* | *"
-"*) continue ;;
+      *[![:print:]]*) continue ;;
     esac
 
     local NVM_ALIAS_TARGET
@@ -2180,7 +2179,13 @@ nvm_get_remote_aliases() {
       "${NVM_IOJS_PREFIX}") NVM_ALIAS_VERSION="${NVM_LATEST_IOJS_VERSION}" ;;
       '' | '∞' | 'N/A' | system) continue ;;
       *)
-        NVM_ALIAS_VERSION="$(nvm_echo "${NVM_REMOTE_VERSIONS}" | command awk '{ print $1 }' | nvm_grep -w "${NVM_ALIAS_TARGET}" | command tail -1)"
+        if ! nvm_is_valid_version "${NVM_ALIAS_TARGET}" 2>/dev/null; then
+          continue
+        fi
+        NVM_ALIAS_VERSION="$(nvm_echo "${NVM_REMOTE_VERSIONS}" | command awk -v target="${NVM_ALIAS_TARGET}" '
+          $1 == target || index($1, target ".") == 1 { version = $1 }
+          END { print version }
+        ')"
       ;;
     esac
 
