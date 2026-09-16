@@ -26,18 +26,20 @@ nvm_remote_versions() {
 }
 
 PROJECT_ALIAS='project'
+HIDDEN_PROJECT_ALIAS='.project'
 LATEST_PROJECT_ALIAS='latest-project'
 INVALID_PATTERN_ALIAS='invalid-pattern'
 INVALID_PATTERN_TARGET='['
 CONTROL_ALIAS="$(command printf 'control\rname')"
 nvm_make_alias "${PROJECT_ALIAS}" '1' >/dev/null
+nvm_make_alias "${HIDDEN_PROJECT_ALIAS}" '1' >/dev/null
 nvm_make_alias "${LATEST_PROJECT_ALIAS}" 'node' >/dev/null
 command printf '%s\n' "${INVALID_PATTERN_TARGET}" > "${NVM_DIR}/alias/${INVALID_PATTERN_ALIAS}"
 command printf '%s\n' '1' > "${NVM_DIR}/alias/${CONTROL_ALIAS}"
 
 INHERITED_ALIAS='injected'
 REMOTE_ERROR="${WORK}/remote-error"
-EXPECTED_OLD_OUTPUT='v1.0.0   (LTS: Argon)   (Aliases: project)'
+EXPECTED_OLD_OUTPUT='v1.0.0   (LTS: Argon)   (Aliases: .project, project)'
 EXPECTED_OUTPUT='v2.0.0   (Latest LTS: Iron)   (Latest: node)   (Aliases: latest-project)'
 REMOTE_OUTPUT="$(NVM_REMOTE_ALIASES="${INHERITED_ALIAS}" nvm ls-remote --no-colors 2>"${REMOTE_ERROR}")"
 OLD_OUTPUT="$(command printf '%s\n' "${REMOTE_OUTPUT}" | command head -1 | command sed 's/^[[:space:]]*//')"

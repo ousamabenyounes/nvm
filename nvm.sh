@@ -2159,7 +2159,7 @@ nvm_get_remote_aliases() {
 
   nvm_is_zsh && setopt local_options nonomatch
   local NVM_ALIAS_PATH
-  for NVM_ALIAS_PATH in "${NVM_ALIAS_DIR}"/*; do
+  for NVM_ALIAS_PATH in "${NVM_ALIAS_DIR}"/.* "${NVM_ALIAS_DIR}"/*; do
     if [ ! -f "${NVM_ALIAS_PATH}" ]; then
       continue
     fi
