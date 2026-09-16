@@ -5112,7 +5112,7 @@ nvm() {
         nvm_iojs_prefix nvm_node_prefix \
         nvm_add_iojs_prefix nvm_strip_iojs_prefix \
         nvm_is_iojs_version nvm_is_alias nvm_has_non_aliased \
-        nvm_ls_remote nvm_ls_remote_iojs nvm_ls_remote_index_tab \
+        nvm_ls_remote nvm_ls_remote_iojs nvm_ls_remote_index_tab nvm_get_remote_aliases \
         nvm_ls nvm_remote_version nvm_remote_versions \
         nvm_install_binary nvm_install_source nvm_clang_version \
         nvm_get_mirror nvm_get_download_slug nvm_download_artifact \
