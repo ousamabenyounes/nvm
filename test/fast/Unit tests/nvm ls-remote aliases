@@ -40,7 +40,7 @@ command printf '%s\n' '1' > "${NVM_DIR}/alias/${CONTROL_ALIAS}"
 INHERITED_ALIAS='injected'
 REMOTE_ERROR="${WORK}/remote-error"
 EXPECTED_OLD_OUTPUT='v1.0.0   (LTS: Argon)   (Aliases: .project, project)'
-EXPECTED_OUTPUT='v2.0.0   (Latest LTS: Iron)   (Latest: node)   (Aliases: latest-project)'
+EXPECTED_OUTPUT='v2.0.0   (Latest LTS: Iron)   (Latest: node, stable)   (Aliases: latest-project)'
 REMOTE_OUTPUT="$(NVM_REMOTE_ALIASES="${INHERITED_ALIAS}" nvm ls-remote --no-colors 2>"${REMOTE_ERROR}")"
 OLD_OUTPUT="$(command printf '%s\n' "${REMOTE_OUTPUT}" | command head -1 | command sed 's/^[[:space:]]*//')"
 OUTPUT="$(command printf '%s\n' "${REMOTE_OUTPUT}" | command tail -1 | command sed 's/^[[:space:]]*//')"
@@ -56,7 +56,8 @@ case "${REMOTE_OUTPUT}" in
   *unstable*) die "bare nvm ls-remote included the outdated unstable alias; got >${REMOTE_OUTPUT}<" ;;
 esac
 case "${REMOTE_OUTPUT}" in
-  *stable*) die "bare nvm ls-remote included the outdated stable alias; got >${REMOTE_OUTPUT}<" ;;
+  *'(Latest: node, stable)'*) ;;
+  *) die "bare nvm ls-remote did not annotate the stable alias on the latest version; got >${REMOTE_OUTPUT}<" ;;
 esac
 
 EXPECTED_FILTERED_OUTPUT='v2.0.0'
@@ -84,7 +85,7 @@ EXPECTED_FAILED_OUTPUT='v2.0.0   (Latest LTS: Iron)'
 
 nvm_has_colors() { return 0; }
 
-EXPECTED_OUTPUT="$(command printf 'v2.0.0  \033[1;32m (Latest LTS: Iron)\033[0m  \033[1;32m (Latest: node)\033[0m  \033[1;32m (Aliases: latest-project)\033[0m')"
+EXPECTED_OUTPUT="$(command printf 'v2.0.0  \033[1;32m (Latest LTS: Iron)\033[0m  \033[1;32m (Latest: node, stable)\033[0m  \033[1;32m (Aliases: latest-project)\033[0m')"
 OUTPUT="$(nvm ls-remote | command tail -1 | command sed 's/^[[:space:]]*//')"
 
 [ "_${OUTPUT}" = "_${EXPECTED_OUTPUT}" ] \

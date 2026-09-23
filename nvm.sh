@@ -2195,6 +2195,20 @@ nvm_get_remote_aliases() {
   done
 }
 
+nvm_get_latest_remote_aliases() {
+  local NVM_REMOTE_VERSIONS
+  NVM_REMOTE_VERSIONS="${1-}"
+  if [ -z "${NVM_REMOTE_VERSIONS}" ]; then
+    return 0
+  fi
+
+  # `node` is defined as the `stable` implicit alias (see nvm_print_implicit_alias),
+  # so both built-in aliases track the newest release annotated on the latest line.
+  # `unstable` tracks legacy 0.x releases and is intentionally omitted. The already
+  # fetched version list is enough here, so avoid re-resolving over the network.
+  nvm_echo "$(nvm_node_prefix), stable"
+}
+
 nvm_print_versions() {
   local NVM_CURRENT
   NVM_CURRENT=$(nvm_ls_current)
@@ -4825,7 +4839,7 @@ nvm() {
         local NVM_REMOTE_NAMED_ALIASES
         NVM_REMOTE_NAMED_ALIASES=''
         if [ "${EXIT_CODE}" -eq 0 ] && [ -z "${NVM_LTS-}" ] && [ -z "${PATTERN-}" ]; then
-          NVM_REMOTE_ALIASES='node'
+          NVM_REMOTE_ALIASES="$(nvm_get_latest_remote_aliases "${NVM_OUTPUT}")"
           NVM_REMOTE_NAMED_ALIASES="$(nvm_get_remote_aliases "${NVM_OUTPUT}")"
         fi
         NVM_NO_COLORS="${NVM_NO_COLORS-}" nvm_print_versions "${NVM_OUTPUT}" "${NVM_REMOTE_ALIASES-}" "${NVM_REMOTE_NAMED_ALIASES-}"
@@ -5113,6 +5127,7 @@ nvm() {
         nvm_add_iojs_prefix nvm_strip_iojs_prefix \
         nvm_is_iojs_version nvm_is_alias nvm_has_non_aliased \
         nvm_ls_remote nvm_ls_remote_iojs nvm_ls_remote_index_tab nvm_get_remote_aliases \
+        nvm_get_latest_remote_aliases \
         nvm_ls nvm_remote_version nvm_remote_versions \
         nvm_install_binary nvm_install_source nvm_clang_version \
         nvm_get_mirror nvm_get_download_slug nvm_download_artifact \
